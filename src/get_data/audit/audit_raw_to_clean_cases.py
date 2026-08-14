@@ -27,6 +27,13 @@ from pathlib import Path
 
 import pandas as pd
 
+from src.get_data.schema import (
+    STANDARD_COLUMNS,
+    apply_column_aliases,
+    candidate_columns_from_schema,
+    is_missing_like,
+    normalize_column_name,
+)
 
 PROJECT_ROOT = Path(__file__).resolve().parents[3]
 RAW_DIR = PROJECT_ROOT / "data" / "raw"
@@ -38,28 +45,6 @@ LONG_PATH = CLEAN_DIR / "election_results_long.parquet"
 SUMMARY_OUTPUT = AUDIT_DIR / "raw_to_clean_case_audit_summary.csv"
 PROBLEMS_OUTPUT = AUDIT_DIR / "raw_to_clean_case_audit_problems.csv"
 
-
-STANDARD_COLUMNS = {
-    "raw_row_id",
-    "id_bvote",
-    "source_bv_id",
-    "scrutin",
-    "annee",
-    "tour",
-    "date",
-    "num_circ",
-    "num_quartier",
-    "num_arrond",
-    "num_bureau",
-    "nb_procu",
-    "nb_inscr",
-    "nb_emarg",
-    "nb_votant",
-    "nb_bl",
-    "nb_nul",
-    "nb_bl_nul",
-    "nb_exprim",
-}
 
 REQUIRED_WIDE_RESULT_COLUMNS = {
     "id_bvote",
@@ -78,61 +63,6 @@ REQUIRED_MUNICIPAL_COLUMNS = {
     "votes",
     "source_bv_id",
 }
-
-COLUMN_ALIASES = {
-    "id_bv": "id_bvote",
-    "type_election": "scrutin",
-    "numero_tour": "tour",
-    "date_tour": "date",
-    "circ_bv": "num_circ",
-    "quartier_bv": "num_quartier",
-    "arr_bv": "num_arrond",
-    "nb_procuration": "nb_procu",
-    "nb_inscrit": "nb_inscr",
-    "nb_emargement": "nb_emarg",
-    "nb_exprime": "nb_exprim",
-    "nb_vote_blanc": "nb_bl",
-    "nb_vote_nul": "nb_nul",
-    "nb_blanc": "nb_bl",
-}
-
-NON_CANDIDATE_COLUMNS = {
-    "objectid",
-    "geo_shape",
-    "geo_point_2d",
-    "st_area_shape",
-    "st_perimeter_shape",
-    "created_user",
-    "created_date",
-    "last_edited_user",
-    "last_edited_date",
-    "nb_bl",
-    "nb_nul",
-    "nb_blanc",
-    "nb_vote_blanc",
-    "nb_vote_nul",
-    "sec_bv",
-}
-
-
-def normalize_column_name(col: str) -> str:
-    return str(col).strip().lower()
-
-
-def apply_column_aliases(df: pd.DataFrame) -> pd.DataFrame:
-    rename_map = {}
-
-    for old_name, new_name in COLUMN_ALIASES.items():
-        if old_name in df.columns and new_name not in df.columns:
-            rename_map[old_name] = new_name
-
-    return df.rename(columns=rename_map)
-
-
-def is_missing_like(series: pd.Series) -> pd.Series:
-    text = series.astype("string").str.strip().str.lower()
-    return series.isna() | text.isna() | text.isin({"", "nan", "none", "<na>"})
-
 
 def add_combined_blank_null_column(df: pd.DataFrame) -> pd.DataFrame:
     df = df.copy()
@@ -161,29 +91,6 @@ def drop_invalid_municipal_rows(df: pd.DataFrame) -> pd.DataFrame:
     votes_ok = pd.to_numeric(df["votes"], errors="coerce").notna()
 
     return df[source_ok & candidate_ok & votes_ok].copy()
-
-
-def looks_like_vote_column(series: pd.Series) -> bool:
-    numeric = pd.to_numeric(series, errors="coerce")
-    non_missing_ratio = numeric.notna().mean()
-
-    return non_missing_ratio >= 0.80
-
-
-def detect_candidate_columns(df: pd.DataFrame, metadata_cols: list[str]) -> list[str]:
-    candidate_cols = []
-
-    for col in df.columns:
-        if col in metadata_cols:
-            continue
-
-        if col in NON_CANDIDATE_COLUMNS:
-            continue
-
-        if looks_like_vote_column(df[col]):
-            candidate_cols.append(col)
-
-    return candidate_cols
 
 
 def looks_like_municipal_long_file(file_path: Path, df: pd.DataFrame) -> bool:
@@ -229,7 +136,7 @@ def prepare_expected_wide_cases(file_path: Path, df: pd.DataFrame) -> pd.DataFra
         return None
 
     metadata_cols = [col for col in df.columns if col in STANDARD_COLUMNS]
-    candidate_cols = detect_candidate_columns(df, metadata_cols)
+    candidate_cols = candidate_columns_from_schema(df, metadata_cols)
 
     if not candidate_cols:
         return None
@@ -500,6 +407,11 @@ def main() -> None:
         print("[warn] Raw files skipped while building expected cases:")
         for file_name in skipped_files:
             print("  -", file_name)
+
+    failed_checks = summary[summary["status"] == "PROBLEM"]
+    if not failed_checks.empty:
+        names = ", ".join(failed_checks["check"].astype(str))
+        raise RuntimeError(f"Raw-to-clean audit failed: {names}")
 
 
 if __name__ == "__main__":

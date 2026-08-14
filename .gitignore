@@ -3,6 +3,14 @@
 .venv/
 __pycache__/
 *.pyc
+.env
+.env.*
+!.env.example
+*.pem
+*.key
+*.p12
+service-account*.json
+.antislop/
 
 # Raw/local downloaded data
 data/raw/
@@ -13,3 +21,6 @@ data/preview/
 
 # Local notebooks/cache/logs
 .ipynb_checkpoints/
+.quarto/
+_site/
+*.log

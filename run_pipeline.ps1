@@ -2,28 +2,23 @@ $ErrorActionPreference = "Stop"
 
 $PY = ".\.venv\Scripts\python.exe"
 
-Write-Host "`n[1/8] Downloading non-municipal OpenData Paris files..."
-& $PY .\src\get_data\download\fetch_non_municipal_data.py
+function Invoke-PipelineStep {
+    param([string]$Label, [string]$Module)
 
-Write-Host "`n[2/8] Downloading data.gouv.fr candidate results..."
-& $PY .\src\get_data\download\download_datagouv_candidats_results.py
+    Write-Host "`n$Label"
+    & $PY -m $Module
+    if ($LASTEXITCODE -ne 0) {
+        throw "Pipeline step failed with exit code $LASTEXITCODE`: $Module"
+    }
+}
 
-Write-Host "`n[3/8] Extracting municipal data.gouv.fr files..."
-& $PY .\src\get_data\download\extract_municipales_datagouv.py
-
-Write-Host "`n[4/8] Cleaning non-municipal results..."
-& $PY .\src\get_data\clean\clean_election_results.py
-
-Write-Host "`n[5/8] Cleaning municipal results..."
-& $PY .\src\get_data\clean\clean_municipal_results.py
-
-Write-Host "`n[6/8] Building final clean results..."
-& $PY .\src\get_data\clean\build_clean_results.py
-
-Write-Host "`n[7/8] Validating clean results..."
-& $PY .\src\get_data\validation\validate_clean_election_results.py
-
-Write-Host "`n[8/8] Auditing raw-to-clean cases..."
-& $PY .\src\get_data\audit\audit_raw_to_clean_cases.py
+Invoke-PipelineStep "[1/8] Downloading non-municipal OpenData Paris files..." "src.get_data.download.fetch_non_municipal_data"
+Invoke-PipelineStep "[2/8] Downloading data.gouv.fr candidate results..." "src.get_data.download.download_datagouv_candidats_results"
+Invoke-PipelineStep "[3/8] Extracting municipal data.gouv.fr files..." "src.get_data.download.extract_municipales_datagouv"
+Invoke-PipelineStep "[4/8] Cleaning non-municipal results..." "src.get_data.clean.clean_election_results"
+Invoke-PipelineStep "[5/8] Cleaning municipal results..." "src.get_data.clean.clean_municipal_results"
+Invoke-PipelineStep "[6/8] Building final clean results..." "src.get_data.clean.build_clean_results"
+Invoke-PipelineStep "[7/8] Validating clean results..." "src.get_data.validation.validate_clean_election_results"
+Invoke-PipelineStep "[8/8] Auditing raw-to-clean cases..." "src.get_data.audit.audit_raw_to_clean_cases"
 
 Write-Host "`n[ok] Full pipeline completed."

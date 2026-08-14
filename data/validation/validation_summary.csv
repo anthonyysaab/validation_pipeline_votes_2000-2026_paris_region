@@ -2,12 +2,12 @@
 long_table_exists,True,OK
 wide_table_exists,True,OK
 long_rows,220404,INFO
-long_columns,31,INFO
+long_columns,37,INFO
 non_municipal_rows,190413,INFO
 municipal_rows,29991,INFO
 wide_rows,19748,INFO
-wide_columns,638,INFO
-wide_candidate_columns,623,INFO
+wide_columns,657,INFO
+wide_candidate_columns,642,INFO
 missing_core_long_columns,,OK
 row_count_problems,0,OK
 source_expressed_vote_mismatches,2,CHECK

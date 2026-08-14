@@ -27,6 +27,7 @@ from pathlib import Path
 
 import pandas as pd
 
+from src.get_data.schema import is_missing_like
 
 PROJECT_ROOT = Path(__file__).resolve().parents[3]
 
@@ -167,11 +168,6 @@ def source_consistency_status(count: int) -> str:
     return "PROBLEM"
 
 
-def blank_or_missing(series: pd.Series) -> pd.Series:
-    text = series.astype("string").str.strip().str.lower()
-    return series.isna() | text.isin({"", "nan", "none", "<na>", "null"})
-
-
 def normalize_file_key(value: object) -> str:
     if pd.isna(value):
         return ""
@@ -213,14 +209,14 @@ def safe_int(value: object, default: int = 0) -> int:
     if pd.isna(value):
         return default
 
-    return int(value)
+    return int(float(str(value)))
 
 
 def validate_row_counts(
     cleaning_report: pd.DataFrame,
     long_df: pd.DataFrame,
 ) -> pd.DataFrame:
-    rows = []
+    rows: list[dict[str, object]] = []
 
     if cleaning_report.empty:
         return pd.DataFrame(rows)
@@ -390,7 +386,7 @@ def validate_municipal_rows(long_df: pd.DataFrame) -> tuple[pd.DataFrame, dict]:
     )
 
     if "candidate" in municipal_df.columns:
-        municipal_df["missing_candidate"] = blank_or_missing(municipal_df["candidate"])
+        municipal_df["missing_candidate"] = is_missing_like(municipal_df["candidate"])
     else:
         municipal_df["missing_candidate"] = True
 
@@ -405,7 +401,7 @@ def validate_municipal_rows(long_df: pd.DataFrame) -> tuple[pd.DataFrame, dict]:
         booth_id_missing = pd.Series(True, index=municipal_df.index)
 
         for col in booth_id_cols:
-            booth_id_missing = booth_id_missing & blank_or_missing(municipal_df[col])
+            booth_id_missing = booth_id_missing & is_missing_like(municipal_df[col])
 
         municipal_df["missing_booth_id"] = booth_id_missing
     else:
@@ -863,6 +859,11 @@ def main() -> None:
     print(f"[ok] Municipal row checks written to: {MUNICIPAL_ROW_CHECKS_PATH.relative_to(PROJECT_ROOT)}")
     print(f"[ok] Suspicious candidates written to: {SUSPICIOUS_CANDIDATES_PATH.relative_to(PROJECT_ROOT)}")
     print(f"[ok] Clean sample written to: {CLEAN_SAMPLE_PATH.relative_to(PROJECT_ROOT)}")
+
+    failed_checks = summary[summary["status"] == "PROBLEM"]
+    if not failed_checks.empty:
+        names = ", ".join(failed_checks["check"].astype(str))
+        raise RuntimeError(f"Validation failed: {names}")
 
 
 if __name__ == "__main__":

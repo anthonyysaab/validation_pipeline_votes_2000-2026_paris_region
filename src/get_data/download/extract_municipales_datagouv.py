@@ -37,7 +37,6 @@ from pathlib import Path
 
 import pandas as pd
 
-
 # ── Paths ────────────────────────────────────────────────────────────────────
 
 PROJECT_ROOT = Path(__file__).resolve().parents[3]
@@ -269,8 +268,10 @@ def main() -> None:
 
         print(f"  Saved {fname} ({len(subset):,} candidate/list rows)")
 
-    if saved_files == 0:
-        raise RuntimeError("No municipal parquet files were created.")
+    if saved_files != len(MUNICIPAL_ELECTIONS):
+        raise RuntimeError(
+            f"Created {saved_files} of {len(MUNICIPAL_ELECTIONS)} required municipal files."
+        )
 
     print()
     print("[ok] Municipal extraction complete.")

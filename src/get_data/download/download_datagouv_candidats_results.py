@@ -33,7 +33,6 @@ from pathlib import Path
 import pandas as pd
 import pyarrow.parquet as pq
 
-
 PROJECT_ROOT = Path(__file__).resolve().parents[3]
 
 RAW_DATAGOUV_DIR = PROJECT_ROOT / "data" / "raw_datagouv"
@@ -151,6 +150,7 @@ def download_file(url: str, output_path: Path) -> None:
             with tmp_path.open("wb") as fh:
                 shutil.copyfileobj(response, fh)
 
+        validate_parquet(tmp_path)
         tmp_path.replace(output_path)
 
     except Exception:

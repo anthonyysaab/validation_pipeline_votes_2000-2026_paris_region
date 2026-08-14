@@ -1,7 +1,7 @@
 ﻿file,rows_raw,columns_raw,status,reason,rows_after_key_filter,rows_dropped_missing_keys,rows_clean_long,candidate_columns,candidate_column_names
-data\raw\elections-municipales-2008-1ertour.parquet,7514,17,ok,,7514,0,7514,1,candidate
-data\raw\elections-municipales-2008-2emetour.parquet,1408,17,ok,,1408,0,1408,1,candidate
-data\raw\elections-municipales-2014-1ertour.parquet,7298,17,ok,,7298,0,7298,1,candidate
-data\raw\elections-municipales-2014-2emetour.parquet,1536,17,ok,,1536,0,1536,1,candidate
-data\raw\elections-municipales-2020-1ertour.parquet,9561,17,ok,,9561,0,9561,1,candidate
-data\raw\elections-municipales-2020-2emetour.parquet,2674,17,ok,,2674,0,2674,1,candidate
+data\raw\elections-municipales-2008-1ertour.parquet,7514,19,ok,,7514,0,7514,1,candidate
+data\raw\elections-municipales-2008-2emetour.parquet,1408,19,ok,,1408,0,1408,1,candidate
+data\raw\elections-municipales-2014-1ertour.parquet,7298,19,ok,,7298,0,7298,1,candidate
+data\raw\elections-municipales-2014-2emetour.parquet,1536,19,ok,,1536,0,1536,1,candidate
+data\raw\elections-municipales-2020-1ertour.parquet,9561,19,ok,,9561,0,9561,1,candidate
+data\raw\elections-municipales-2020-2emetour.parquet,2674,19,ok,,2674,0,2674,1,candidate

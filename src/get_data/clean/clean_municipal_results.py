@@ -13,11 +13,11 @@ one row = one polling station x one candidate/list.
 """
 
 from pathlib import Path
-import re
 
 import numpy as np
 import pandas as pd
 
+from src.get_data.schema import is_missing_like, normalize_column_name, normalize_output_types
 
 PROJECT_ROOT = Path(__file__).resolve().parents[3]
 RAW_DIR = PROJECT_ROOT / "data" / "raw"
@@ -104,47 +104,6 @@ FINAL_COLUMN_ORDER = [
     "nuance",
     "liste",
 ]
-
-
-def normalize_column_name(col: str) -> str:
-    return str(col).strip().lower()
-
-
-def extract_year(value) -> int | None:
-    if pd.isna(value):
-        return None
-
-    match = re.search(r"(20\d{2})", str(value))
-    if not match:
-        return None
-
-    return int(match.group(1))
-
-
-def normalize_output_types(df: pd.DataFrame) -> pd.DataFrame:
-    df = df.copy()
-
-    if "annee" in df.columns:
-        df["annee"] = df["annee"].apply(extract_year).astype("Int64")
-
-    if "date" in df.columns:
-        df["date"] = pd.to_datetime(df["date"], errors="coerce", dayfirst=True)
-        df["date"] = df["date"].dt.date.astype("string")
-
-    for col in STRING_COLUMNS:
-        if col in df.columns:
-            df[col] = df[col].astype("string")
-
-    for col in NUMERIC_COLUMNS:
-        if col in df.columns:
-            df[col] = pd.to_numeric(df[col], errors="coerce").astype("float64")
-
-    return df
-
-
-def is_missing_like(series: pd.Series) -> pd.Series:
-    text = series.astype("string").str.strip().str.lower()
-    return series.isna() | text.isna() | text.isin({"", "nan", "none", "<na>"})
 
 
 def replace_infinite_with_na(series: pd.Series) -> pd.Series:
@@ -294,7 +253,7 @@ def clean_one_file(file_path: Path) -> tuple[pd.DataFrame | None, dict]:
     extra_cols = [col for col in df.columns if col not in existing_cols]
     df = df[existing_cols + extra_cols].copy()
 
-    df = normalize_output_types(df)
+    df = normalize_output_types(df, STRING_COLUMNS, NUMERIC_COLUMNS)
 
     report["rows_clean_long"] = len(df)
     report["candidate_columns"] = 1
@@ -310,8 +269,7 @@ def main() -> None:
     parquet_files = sorted(RAW_DIR.glob("elections-municipales-*.parquet"))
 
     if not parquet_files:
-        print(f"No municipal raw parquet files found in {RAW_DIR}")
-        return
+        raise FileNotFoundError(f"No municipal raw parquet files found in {RAW_DIR}")
 
     cleaned_frames = []
     reports = []
@@ -342,12 +300,15 @@ def main() -> None:
     report_df = pd.DataFrame(reports)
     report_df.to_csv(CLEANING_REPORT, index=False, encoding="utf-8-sig")
 
+    failed = report_df[report_df["status"] != "ok"]
+    if not failed.empty:
+        raise RuntimeError(f"{len(failed)} municipal file(s) failed or were skipped; see {CLEANING_REPORT}")
+
     if not cleaned_frames:
-        print("No municipal files could be cleaned.")
-        return
+        raise RuntimeError("No municipal files could be cleaned.")
 
     long_df = pd.concat(cleaned_frames, ignore_index=True)
-    long_df = normalize_output_types(long_df)
+    long_df = normalize_output_types(long_df, STRING_COLUMNS, NUMERIC_COLUMNS)
     long_df.to_parquet(LONG_OUTPUT, index=False)
 
     print()

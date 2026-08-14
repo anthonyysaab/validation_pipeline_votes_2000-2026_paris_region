@@ -13,11 +13,18 @@ one row = one polling station, candidate vote counts are columns.
 """
 
 from pathlib import Path
-import re
 
 import numpy as np
 import pandas as pd
 
+from src.get_data.schema import (
+    STANDARD_COLUMNS,
+    apply_column_aliases,
+    candidate_columns_from_schema,
+    is_missing_like,
+    normalize_column_name,
+    normalize_output_types,
+)
 
 PROJECT_ROOT = Path(__file__).resolve().parents[3]
 RAW_DIR = PROJECT_ROOT / "data" / "raw"
@@ -27,27 +34,6 @@ MANIFEST_DIR = PROJECT_ROOT / "data" / "manifest"
 LONG_OUTPUT = CLEAN_DIR / "election_results_non_municipal_long.parquet"
 CLEANING_REPORT = MANIFEST_DIR / "cleaning_report_non_municipal.csv"
 
-
-STANDARD_COLUMNS = {
-    "raw_row_id",
-    "id_bvote",
-    "scrutin",
-    "annee",
-    "tour",
-    "date",
-    "num_circ",
-    "num_quartier",
-    "num_arrond",
-    "num_bureau",
-    "nb_procu",
-    "nb_inscr",
-    "nb_emarg",
-    "nb_votant",
-    "nb_bl",
-    "nb_nul",
-    "nb_bl_nul",
-    "nb_exprim",
-}
 
 REQUIRED_RESULT_COLUMNS = {
     "id_bvote",
@@ -59,23 +45,6 @@ REQUIRED_RESULT_COLUMNS = {
     "nb_inscr",
     "nb_votant",
     "nb_exprim",
-}
-
-COLUMN_ALIASES = {
-    "id_bv": "id_bvote",
-    "type_election": "scrutin",
-    "numero_tour": "tour",
-    "date_tour": "date",
-    "circ_bv": "num_circ",
-    "quartier_bv": "num_quartier",
-    "arr_bv": "num_arrond",
-    "nb_procuration": "nb_procu",
-    "nb_inscrit": "nb_inscr",
-    "nb_emargement": "nb_emarg",
-    "nb_exprime": "nb_exprim",
-    "nb_vote_blanc": "nb_bl",
-    "nb_vote_nul": "nb_nul",
-    "nb_blanc": "nb_bl",
 }
 
 SCRUTIN_CORRECTIONS = {
@@ -90,24 +59,6 @@ SCRUTIN_CORRECTIONS = {
     "prÃ©sidentielle": "PrÃ©sidentielle",
     "europeennes": "EuropÃ©ennes",
     "europÃ©ennes": "EuropÃ©ennes",
-}
-
-NON_CANDIDATE_COLUMNS = {
-    "objectid",
-    "geo_shape",
-    "geo_point_2d",
-    "st_area_shape",
-    "st_perimeter_shape",
-    "created_user",
-    "created_date",
-    "last_edited_user",
-    "last_edited_date",
-    "nb_bl",
-    "nb_nul",
-    "nb_blanc",
-    "nb_vote_blanc",
-    "nb_vote_nul",
-    "sec_bv",
 }
 
 STRING_COLUMNS = {
@@ -138,20 +89,6 @@ NUMERIC_COLUMNS = {
     "vote_share_exprimes",
     "vote_share_registered",
 }
-
-
-def normalize_column_name(col: str) -> str:
-    return str(col).strip().lower()
-
-
-def apply_column_aliases(df: pd.DataFrame) -> pd.DataFrame:
-    rename_map = {}
-
-    for old_name, new_name in COLUMN_ALIASES.items():
-        if old_name in df.columns and new_name not in df.columns:
-            rename_map[old_name] = new_name
-
-    return df.rename(columns=rename_map)
 
 
 def normalize_scrutin_values(df: pd.DataFrame) -> pd.DataFrame:
@@ -185,43 +122,6 @@ def add_combined_blank_null_column(df: pd.DataFrame) -> pd.DataFrame:
     return df
 
 
-def extract_year(value) -> int | None:
-    if pd.isna(value):
-        return None
-
-    match = re.search(r"(20\d{2})", str(value))
-    if not match:
-        return None
-
-    return int(match.group(1))
-
-
-def normalize_output_types(df: pd.DataFrame) -> pd.DataFrame:
-    df = df.copy()
-
-    if "annee" in df.columns:
-        df["annee"] = df["annee"].apply(extract_year).astype("Int64")
-
-    if "date" in df.columns:
-        df["date"] = pd.to_datetime(df["date"], errors="coerce", dayfirst=True)
-        df["date"] = df["date"].dt.date.astype("string")
-
-    for col in STRING_COLUMNS:
-        if col in df.columns:
-            df[col] = df[col].astype("string")
-
-    for col in NUMERIC_COLUMNS:
-        if col in df.columns:
-            df[col] = pd.to_numeric(df[col], errors="coerce").astype("float64")
-
-    return df
-
-
-def is_missing_like(series: pd.Series) -> pd.Series:
-    text = series.astype("string").str.strip().str.lower()
-    return series.isna() | text.isna() | text.isin({"", "nan", "none", "<na>"})
-
-
 def replace_infinite_with_na(series: pd.Series) -> pd.Series:
     numeric = pd.to_numeric(series, errors="coerce")
     return numeric.mask(~np.isfinite(numeric), pd.NA)
@@ -237,29 +137,6 @@ def drop_invalid_polling_rows(df: pd.DataFrame) -> tuple[pd.DataFrame, int]:
 
     dropped = before - len(df)
     return df, dropped
-
-
-def looks_like_vote_column(series: pd.Series) -> bool:
-    numeric = pd.to_numeric(series, errors="coerce")
-    non_missing_ratio = numeric.notna().mean()
-
-    return non_missing_ratio >= 0.80
-
-
-def detect_candidate_columns(df: pd.DataFrame, metadata_cols: list[str]) -> list[str]:
-    candidate_cols = []
-
-    for col in df.columns:
-        if col in metadata_cols:
-            continue
-
-        if col in NON_CANDIDATE_COLUMNS:
-            continue
-
-        if looks_like_vote_column(df[col]):
-            candidate_cols.append(col)
-
-    return candidate_cols
 
 
 def clean_one_file(file_path: Path) -> tuple[pd.DataFrame | None, dict]:
@@ -292,7 +169,7 @@ def clean_one_file(file_path: Path) -> tuple[pd.DataFrame | None, dict]:
     report["rows_dropped_missing_keys"] = dropped_rows
 
     metadata_cols = [col for col in df.columns if col in STANDARD_COLUMNS]
-    candidate_cols = detect_candidate_columns(df, metadata_cols)
+    candidate_cols = candidate_columns_from_schema(df, metadata_cols)
 
     if not candidate_cols:
         report["status"] = "skipped"
@@ -322,7 +199,7 @@ def clean_one_file(file_path: Path) -> tuple[pd.DataFrame | None, dict]:
     )
 
     long_df = long_df[long_df["candidate"].notna()].copy()
-    long_df = normalize_output_types(long_df)
+    long_df = normalize_output_types(long_df, STRING_COLUMNS, NUMERIC_COLUMNS)
 
     report["rows_clean_long"] = len(long_df)
     report["candidate_columns"] = len(candidate_cols)
@@ -342,8 +219,7 @@ def main() -> None:
     ]
 
     if not parquet_files:
-        print(f"No non-municipal raw parquet files found in {RAW_DIR}")
-        return
+        raise FileNotFoundError(f"No non-municipal raw parquet files found in {RAW_DIR}")
 
     cleaned_frames = []
     reports = []
@@ -374,12 +250,15 @@ def main() -> None:
     report_df = pd.DataFrame(reports)
     report_df.to_csv(CLEANING_REPORT, index=False, encoding="utf-8-sig")
 
+    failed = report_df[report_df["status"] != "ok"]
+    if not failed.empty:
+        raise RuntimeError(f"{len(failed)} non-municipal file(s) failed or were skipped; see {CLEANING_REPORT}")
+
     if not cleaned_frames:
-        print("No non-municipal election result files could be cleaned.")
-        return
+        raise RuntimeError("No non-municipal election result files could be cleaned.")
 
     long_df = pd.concat(cleaned_frames, ignore_index=True)
-    long_df = normalize_output_types(long_df)
+    long_df = normalize_output_types(long_df, STRING_COLUMNS, NUMERIC_COLUMNS)
     long_df.to_parquet(LONG_OUTPUT, index=False)
 
     print()

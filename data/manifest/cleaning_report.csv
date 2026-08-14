@@ -17,9 +17,9 @@ data\raw\elections-regionales-2015-1ertour.parquet,869,33,ok,,869,0,11297,13,lau
 data\raw\elections-regionales-2015-2emetour.parquet,869,23,ok,,869,0,2607,3,bartolone_claude | pecresse_valerie | de_saint_just_wallerand
 data\raw\elections-regionales-2021-1ertour.parquet,898,31,ok,,898,0,9878,11,bardella_jordan | berlingen_eric | bayou_julien | pulvar_audrey | pailhac_victor | pecresse_valerie | conti_fabiola | brot_lionel | saint_martin_laurent | arthaud_nathalie | autain_clementine
 data\raw\elections-regionales-2021-2emetour.parquet,898,24,ok,,898,0,3592,4,bardella_jordan | bayou_julien | pecresse_valerie | saint_martin_laurent
-data\raw\elections-municipales-2008-1ertour.parquet,7514,17,ok,,7514,0,7514,1,candidate
-data\raw\elections-municipales-2008-2emetour.parquet,1408,17,ok,,1408,0,1408,1,candidate
-data\raw\elections-municipales-2014-1ertour.parquet,7298,17,ok,,7298,0,7298,1,candidate
-data\raw\elections-municipales-2014-2emetour.parquet,1536,17,ok,,1536,0,1536,1,candidate
-data\raw\elections-municipales-2020-1ertour.parquet,9561,17,ok,,9561,0,9561,1,candidate
-data\raw\elections-municipales-2020-2emetour.parquet,2674,17,ok,,2674,0,2674,1,candidate
+data\raw\elections-municipales-2008-1ertour.parquet,7514,19,ok,,7514,0,7514,1,candidate
+data\raw\elections-municipales-2008-2emetour.parquet,1408,19,ok,,1408,0,1408,1,candidate
+data\raw\elections-municipales-2014-1ertour.parquet,7298,19,ok,,7298,0,7298,1,candidate
+data\raw\elections-municipales-2014-2emetour.parquet,1536,19,ok,,1536,0,1536,1,candidate
+data\raw\elections-municipales-2020-1ertour.parquet,9561,19,ok,,9561,0,9561,1,candidate
+data\raw\elections-municipales-2020-2emetour.parquet,2674,19,ok,,2674,0,2674,1,candidate

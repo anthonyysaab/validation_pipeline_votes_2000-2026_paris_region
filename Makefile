@@ -1,34 +1,29 @@
 PYTHON ?= ./.venv/Scripts/python.exe
 
-.PHONY: all report.py report presentation get_data/download clean validate audit pipeline
+.PHONY: all get_data/download clean validate audit pipeline test
 
-all: report presentation
-
-report.py:
-	jupyter nbconvert --to python --no-prompt --stdout report.ipynb | grep -v "^#|" > report.py
-
-report: report.py
-	quarto render report.qmd
-	echo "\007"
-
-presentation:
-	quarto render presentation.qmd
-	echo "\007"
+all: pipeline
 
 get_data/download:
-	$(PYTHON) src/get_data/download/fetch_non_municipal_data.py
-	$(PYTHON) src/get_data/download/download_datagouv_candidats_results.py
-	$(PYTHON) src/get_data/download/extract_municipales_datagouv.py
+	$(PYTHON) -m src.get_data.download.fetch_non_municipal_data
+	$(PYTHON) -m src.get_data.download.download_datagouv_candidats_results
+	$(PYTHON) -m src.get_data.download.extract_municipales_datagouv
 
 clean:
-	$(PYTHON) src/get_data/clean/clean_election_results.py
-	$(PYTHON) src/get_data/clean/clean_municipal_results.py
-	$(PYTHON) src/get_data/clean/build_clean_results.py
+	$(PYTHON) -m src.get_data.clean.clean_election_results
+	$(PYTHON) -m src.get_data.clean.clean_municipal_results
+	$(PYTHON) -m src.get_data.clean.build_clean_results
 
 validate:
-	$(PYTHON) src/get_data/validation/validate_clean_election_results.py
+	$(PYTHON) -m src.get_data.validation.validate_clean_election_results
 
 audit:
-	$(PYTHON) src/get_data/audit/audit_raw_to_clean_cases.py
+	$(PYTHON) -m src.get_data.audit.audit_raw_to_clean_cases
 
 pipeline: get_data/download clean validate audit
+
+test:
+	$(PYTHON) -m compileall -q src tests
+	$(PYTHON) -m unittest discover -s tests -v
+	$(PYTHON) -m ruff check src tests
+	$(PYTHON) -m mypy

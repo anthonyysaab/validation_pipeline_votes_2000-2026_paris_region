@@ -5,11 +5,10 @@ This is mainly for teammates who prefer CSV/Excel workflows.
 Parquet remains the preferred format for Python analysis.
 """
 
-from pathlib import Path
 import re
+from pathlib import Path
 
 import pandas as pd
-
 
 PROJECT_ROOT = Path(__file__).resolve().parents[1]
 CLEAN_DIR = PROJECT_ROOT / "data" / "clean"

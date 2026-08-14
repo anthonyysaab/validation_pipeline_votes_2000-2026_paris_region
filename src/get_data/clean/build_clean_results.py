@@ -12,10 +12,10 @@ Outputs:
 """
 
 from pathlib import Path
-import re
 
 import pandas as pd
 
+from src.get_data.schema import normalize_output_types
 
 PROJECT_ROOT = Path(__file__).resolve().parents[3]
 CLEAN_DIR = PROJECT_ROOT / "data" / "clean"
@@ -67,38 +67,6 @@ NUMERIC_COLUMNS = {
 }
 
 
-def extract_year(value) -> int | None:
-    if pd.isna(value):
-        return None
-
-    match = re.search(r"(20\d{2})", str(value))
-    if not match:
-        return None
-
-    return int(match.group(1))
-
-
-def normalize_output_types(df: pd.DataFrame) -> pd.DataFrame:
-    df = df.copy()
-
-    if "annee" in df.columns:
-        df["annee"] = df["annee"].apply(extract_year).astype("Int64")
-
-    if "date" in df.columns:
-        df["date"] = pd.to_datetime(df["date"], errors="coerce", dayfirst=True)
-        df["date"] = df["date"].dt.date.astype("string")
-
-    for col in STRING_COLUMNS:
-        if col in df.columns:
-            df[col] = df[col].astype("string")
-
-    for col in NUMERIC_COLUMNS:
-        if col in df.columns:
-            df[col] = pd.to_numeric(df[col], errors="coerce").astype("float64")
-
-    return df
-
-
 def build_wide_vote_share_table(long_df: pd.DataFrame) -> pd.DataFrame:
     index_cols = [
         "dataset_id",
@@ -146,7 +114,7 @@ def build_wide_vote_share_table(long_df: pd.DataFrame) -> pd.DataFrame:
     for col in index_cols:
         wide[col] = wide[col].replace(missing_marker, pd.NA)
 
-    wide = normalize_output_types(wide)
+    wide = normalize_output_types(wide, STRING_COLUMNS, NUMERIC_COLUMNS)
 
     return wide
 
@@ -180,20 +148,14 @@ def main() -> None:
     ]
 
     if missing_inputs:
-        print("[error] Missing required clean input files:")
-        for p in missing_inputs:
-            print("  -", p.relative_to(PROJECT_ROOT))
-        print()
-        print("Run these first:")
-        print(r"  .\.venv\Scripts\python.exe .\src\clean_election_results.py")
-        print(r"  .\.venv\Scripts\python.exe .\src\clean_municipal_results.py")
-        return
+        missing = ", ".join(str(path.relative_to(PROJECT_ROOT)) for path in missing_inputs)
+        raise FileNotFoundError(f"Missing required clean input files: {missing}")
 
     non_municipal = pd.read_parquet(NON_MUNICIPAL_LONG)
     municipal = pd.read_parquet(MUNICIPAL_LONG)
 
     long_df = pd.concat([non_municipal, municipal], ignore_index=True, sort=False)
-    long_df = normalize_output_types(long_df)
+    long_df = normalize_output_types(long_df, STRING_COLUMNS, NUMERIC_COLUMNS)
     long_df.to_parquet(FINAL_LONG, index=False)
 
     print(f"[ok] Final long table written to: {FINAL_LONG.relative_to(PROJECT_ROOT)}")

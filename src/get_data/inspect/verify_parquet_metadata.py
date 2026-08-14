@@ -32,6 +32,12 @@ import pandas as pd
 import pyarrow as pa
 import pyarrow.parquet as pq
 
+from src.get_data.schema import (
+    COLUMN_ALIASES,
+    NON_CANDIDATE_COLUMNS,
+    STANDARD_COLUMNS,
+    normalize_column_name,
+)
 
 PROJECT_ROOT = Path(__file__).resolve().parents[3]
 
@@ -47,29 +53,6 @@ COLUMN_METADATA_OUTPUT = METADATA_DIR / "parquet_column_metadata.csv"
 VALIDATION_SUMMARY_OUTPUT = METADATA_DIR / "metadata_validation_summary.csv"
 VALIDATION_PROBLEMS_OUTPUT = METADATA_DIR / "metadata_validation_problems.csv"
 
-
-STANDARD_COLUMNS = {
-    "id_bvote",
-    "source_bv_id",
-    "dataset_id",
-    "source_file",
-    "scrutin",
-    "annee",
-    "tour",
-    "date",
-    "num_circ",
-    "num_quartier",
-    "num_arrond",
-    "num_bureau",
-    "nb_procu",
-    "nb_inscr",
-    "nb_emarg",
-    "nb_votant",
-    "nb_bl",
-    "nb_nul",
-    "nb_bl_nul",
-    "nb_exprim",
-}
 
 REQUIRED_WIDE_RAW_COLUMNS = {
     "id_bvote",
@@ -90,53 +73,6 @@ REQUIRED_MUNICIPAL_RAW_COLUMNS = {
     "candidate",
     "votes",
     "source_bv_id",
-}
-
-COLUMN_ALIASES = {
-    # European 2024
-    "id_bv": "id_bvote",
-
-    # Newer election schemas
-    "type_election": "scrutin",
-    "numero_tour": "tour",
-    "date_tour": "date",
-    "circ_bv": "num_circ",
-    "quartier_bv": "num_quartier",
-    "arr_bv": "num_arrond",
-    "nb_procuration": "nb_procu",
-    "nb_inscrit": "nb_inscr",
-    "nb_emargement": "nb_emarg",
-    "nb_exprime": "nb_exprim",
-    "nb_vote_blanc": "nb_bl",
-    "nb_vote_nul": "nb_nul",
-    "nb_blanc": "nb_bl",
-}
-
-NON_CANDIDATE_COLUMNS = {
-    # Technical IDs
-    "objectid",
-
-    # Geometry / GIS
-    "geo_shape",
-    "geo_point_2d",
-    "st_area_shape",
-    "st_perimeter_shape",
-
-    # Editing metadata
-    "created_user",
-    "created_date",
-    "last_edited_user",
-    "last_edited_date",
-
-    # Blank/null vote columns
-    "nb_bl",
-    "nb_nul",
-    "nb_blanc",
-    "nb_vote_blanc",
-    "nb_vote_nul",
-
-    # Extra administrative fields
-    "sec_bv",
 }
 
 EXPECTED_CLEAN_LONG_COLUMNS = {
@@ -187,10 +123,6 @@ CLEAN_WIDE_METADATA_COLUMNS = CLEAN_WIDE_REQUIRED_METADATA_COLUMNS | {
     "num_circ",
     "num_quartier",
 }
-
-
-def normalize_column_name(col: str) -> str:
-    return str(col).strip().lower()
 
 
 def canonical_column_name(col: str) -> str:
@@ -352,7 +284,7 @@ def validate_raw_file(file_path: Path, column_metadata: pd.DataFrame) -> list[di
     candidate_rows = current[current["detected_role"] == "candidate_vote_column"].copy()
 
     non_numeric_candidates = candidate_rows[
-        candidate_rows["is_numeric_arrow_type"] != True
+        candidate_rows["is_numeric_arrow_type"].ne(True)
     ]
 
     if not non_numeric_candidates.empty:
